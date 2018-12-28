@@ -24,9 +24,6 @@
 #include <utime.h>
 #include <errno.h>
 
-#define    BUF_MAX_LEN    1024
-#define    MAXLINE        (BUF_MAX_LEN+MESG_HEAD_LEN)
-#define    PORT 		  8880
 
 enum Command
 {
@@ -59,7 +56,10 @@ typedef struct
     int block_size;*/
 } FileBlock_t;
 
-#define MESG_HEAD_LEN 8
+#define    BUF_MAX_LEN    512
+#define    MAXLINE        (BUF_MAX_LEN+MESG_HEAD_LEN+16)
+#define    MESG_HEAD_LEN 8
+
 typedef struct
 {
 	uint16_t cmd;	
@@ -71,7 +71,7 @@ typedef struct
 
 #define FRAME_RESERVED_FOR_CHECKSUM_LENGTH 1
 #define DATA_PACKET_HEAD_LENGTH               4
-#define DATA_PACKET_PAYLOAD_LENGTH     BUF_MAX_LEN
+#define DATA_PACKET_PAYLOAD_LENGTH   		 (BUF_MAX_LEN+MESG_HEAD_LEN+16)
 
 typedef struct
 {

@@ -64,9 +64,9 @@ time_t get_file_mtime(const char *path)
 
 int sendfile(const char* file_path)  
 {  
-        int ret = 0;
-        char sendbuf[MAXLINE] = {0};  
-        char recvbuf[MAXLINE] = {0}; 
+    int ret = 0;
+    char sendbuf[MAXLINE] = {0};  
+    char recvbuf[MAXLINE] = {0}; 
 	int len            		  = 0;
 	int i 					  = 0;
 	int fd 					  = 0;
@@ -194,64 +194,6 @@ int sendfile(const char* file_path)
 }  
 
 
-/***********************udp send rev**********************************************/
-#if 0
-//char* SERVERIP = "192.168.24.138";  
-char* SERVERIP = "10.0.0.2";  
-#define ERR_EXIT(m) do{perror(m);}while(0)  
-	
-int sock; 
-struct sockaddr_in servaddr,disservaddr,disp_local_addr; 
-
-void udpsocketinit()
-{
-    struct timeval timeout = { 2, 0 };
-    int ret;
-	
-     if ((sock = socket(PF_INET, SOCK_DGRAM, 0)) < 0)  
-     {
-		perror("sock creat fail");
-	}
-    
-	memset(&servaddr, 0, sizeof(servaddr));  
-    servaddr.sin_family = AF_INET;  
-    servaddr.sin_port = htons(PORT);  
-    servaddr.sin_addr.s_addr = inet_addr(SERVERIP);
-    
-	//设置接收超时
-	ret = setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
-    if(ret == -1)
-        perror("sock setsockopt");
-	
-}
-
-void uartsend(char *buf,unsigned int len)
-{
-	sendto(sock, buf, len, 0, (struct sockaddr *)&servaddr, sizeof(servaddr));  
-}
-
-int uartrev(char *buf)
-{
-	int length;
-	char * server_ip = NULL;
-    	unsigned short int port = 0;
-	socklen_t addrlen = sizeof(struct sockaddr);
-	
-	length = recvfrom(sock, buf,BUF_MAX_LEN, 0, (struct sockaddr*)&disservaddr,&addrlen); 
-	if (length == -1)  
-	{   
-		ERR_EXIT("recvfrom");  //如果设置了超时，超过3S没有获取到数据就会报�?Resource temporarily unavailable
-		return -1;
-	}
-	
-//	server_ip = inet_ntoa(disservaddr.sin_addr);//display remove ip addr
-//	port      = ntohs(disservaddr.sin_port);
-//	printf("addrlen = %d server_ip = %s  port = %d::",addrlen,server_ip,port);
-	  
-	return length;
-}
-#endif
-
 uint8_t Utils_CheckSum(const uint8_t *pdata, uint32_t length)
 {
 	uint8_t checksum = 0;
@@ -328,15 +270,18 @@ void rf_on_byte_received ( uint8_t byte )
         break;
 		
     case DATA_FRAME_STATE_Payload:
-
-        frame_data[frame_data_length++] = byte;
-        checksum += byte;
-
-        if ( frame_data_length == len - 1 )
-        {
-            rf_frame_state =  DATA_FRAME_STATE_Checksum;
-        }
-
+        if(len > DATA_PACKET_PAYLOAD_LENGTH)
+		{
+			 rf_frame_state =  DATA_FRAME_STATE_IDLE;
+		}else
+		{
+			frame_data[frame_data_length++] = byte;
+	        checksum += byte;
+	        if ( frame_data_length == len - 1 )
+	        {
+	            rf_frame_state =  DATA_FRAME_STATE_Checksum;
+	        }
+		}
         break;
 
     case DATA_FRAME_STATE_Checksum:

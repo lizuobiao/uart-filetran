@@ -272,124 +272,6 @@ void onrecv(char *buf,int len)
 }
 	
 
-/***************socket udp send rev***********************************/	
-#if 0
-int sock;
-struct sockaddr_in peeraddr; 
-struct sockaddr_in servaddr;  
-
-void udpsocketinit()
-{
-	if ((sock = socket(PF_INET, SOCK_DGRAM, 0)) < 0)  
-        ERR_EXIT("socket error");  
-      
-    memset(&servaddr, 0, sizeof(servaddr));  
-    servaddr.sin_family = AF_INET;  
-    servaddr.sin_port = htons(PORT);  
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);  
-      
-    printf("port %d\n",PORT);  
-    if (bind(sock, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)  
-    {
-        perror("sock bind");
-        ERR_EXIT("bind error");  
-    }
-}
-
-void uartsend(char *buf,unsigned int len)
-{
-	sendto(sock, buf, len, 0, (struct sockaddr *)&peeraddr, sizeof(servaddr));  
-}
-
-char recvbuf[MAXLINE] = {0}; 
-void socketrev(void)  
-{  
-    socklen_t peerlen;  
-    char * server_ip = NULL;
-    unsigned short int port = 0;
-    int n;  
-    fd_set recv_fds;
-    struct timeval tv;
-    int ret;
-    
-    while (1)  
-    {
-        FD_ZERO(&recv_fds);
-        FD_SET(sock, &recv_fds);
-        tv.tv_sec = 3;
-        tv.tv_usec = 0;
-        
-        ret = select(sock+1, &recv_fds, NULL, NULL, &tv);
-        /* socket error */
-        if (ret == -1)
-        {
-            perror("select");
-            break;
-        }
-        /* timeout */
-        if (ret == 0)
-        {
-            continue;
-        }
-
-        if (FD_ISSET(sock, &recv_fds))
-        {
-            peerlen = sizeof(peeraddr);  
-            memset(recvbuf, 0, sizeof(recvbuf));  
-            n = recvfrom(sock, recvbuf, sizeof(recvbuf), 0,  
-                         (struct sockaddr *)&peeraddr, &peerlen);  
-            if (n <= 0)  
-            {
-                perror("sock recvfrom");     
-            }  
-            else if(n > 0)  
-            {  
-  //              server_ip = inet_ntoa(peeraddr.sin_addr);//display remove ip addr
-  //              port      = ntohs(peeraddr.sin_port);
-  //              printf("client_ip = %s port = %d::",server_ip,port);
-                
-				onrecv(recvbuf,n);
-            }  
-        }
-    }  
-    close(sock);  
-}  
-
-int access_netcard(const char *net_card)
-{
-	struct ifreq ifr;
-    bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifr_name, net_card,IFNAMSIZ);
-    if (ioctl(sock, SIOCGIFADDR, &ifr) < 0)
-    {
-        perror("ioctl");
-        return -1;
-    }
-//    printf("frname:%s\n",ifr.ifr_name);
-//    printf("host:%s\n", inet_ntoa(((struct sockaddr_in*)&(ifr.ifr_addr))->sin_addr));
-}
-
-
-pthread_t usb_net_recv_pthread_;
-void *usb_net_recvthread(void *param)
-{
-	udpsocketinit();
-	while(1)
-	{
-		socketrev();
-//		DLS_PrintErr("usb_net_recvthread is start\r\n");
-		sleep(5);
-	}
-}
-
-static void usb_net_rev_init(void)
-{
-	pthread_create(&usb_net_recv_pthread_, NULL, usb_net_recvthread,NULL);
-	pthread_detach(usb_net_recv_pthread_);
-}
-#endif
-
-
 uint8_t Utils_CheckSum(const uint8_t *pdata, uint32_t length)
 {
 	uint8_t checksum = 0;
@@ -421,8 +303,6 @@ void rf_on_byte_received ( uint8_t byte )
     static uint16_t len = 0, frame_data_length = 0;;
     static uint8_t checksum = 0;
     uint32_t i;
-    //memset(frame_data,0,MAX_SQUEUE_SIZE);
-    //printf("%02x ",byte);
 
     switch ( rf_frame_state )
     {
@@ -445,8 +325,16 @@ void rf_on_byte_received ( uint8_t byte )
         break;
 
     case DATA_FRAME_STATE_Prefix:
-        rf_frame_state =  DATA_FRAME_STATE_reserved;//ªÒ»°rssi–≈∫≈
-        checksum += byte;
+        if ( byte == 0x5a )
+        {
+            rf_frame_state =  DATA_FRAME_STATE_reserved;
+            checksum += byte;
+        }
+        else
+        {
+            rf_frame_state =  DATA_FRAME_STATE_IDLE;
+            checksum = 0;
+        }
         break;
 
     case DATA_FRAME_STATE_reserved:
@@ -459,25 +347,30 @@ void rf_on_byte_received ( uint8_t byte )
         len |= ( byte << 8 );
         rf_frame_state =  DATA_FRAME_STATE_Payload;
         checksum += byte;
+//		printf("len = %d\n",len);
         break;
 		
     case DATA_FRAME_STATE_Payload:
 
-        frame_data[frame_data_length++] = byte;
-        checksum += byte;
-
-        if ( frame_data_length == len - 1 )
-        {
-            rf_frame_state =  DATA_FRAME_STATE_Checksum;
-        }
-
+		if(len > DATA_PACKET_PAYLOAD_LENGTH)
+		{
+			 rf_frame_state =  DATA_FRAME_STATE_IDLE;
+		}else
+		{
+			frame_data[frame_data_length++] = byte;
+	        checksum += byte;
+	        if ( frame_data_length == len - 1 )
+	        {
+	            rf_frame_state =  DATA_FRAME_STATE_Checksum;
+	        }
+		}
         break;
 
     case DATA_FRAME_STATE_Checksum:
         if ( byte == checksum )
         {
         	onrecv((char*)frame_data,len);
-  //          printf("checksum is ok byte = %0x,checksum = %0x\n",byte,checksum);
+//            printf("checksum is ok byte = %0x,checksum = %0x\n",byte,checksum);
         }else
         {
         	printf("byte = %0x,checksum = %d\n",byte,checksum);
