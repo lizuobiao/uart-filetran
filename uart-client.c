@@ -1,6 +1,7 @@
 #include "usbserial-file.h"
 #include "serial.h"
 #include <semaphore.h>
+#include <time.h>
 
 /********update log*********************
 *2018-9-25 V1.0.2  add FileBlock_t timestamp member
@@ -129,8 +130,8 @@ int sendfile(const char* file_path)
 			
 			ret = uartrev(recvbuf);
 			Message_repose = (Message_t*)recvbuf;
-			if(Message_repose->cmd  == CMD_SEND_FILE
-			&&Message_repose->type  == ACK_OK)
+			if((ret != 0)&&(Message_repose->cmd  == CMD_SEND_FILE)
+			&&(Message_repose->type  == ACK_OK))
 			{
 //			   printf("file send is ok\n");
 				len = read(fd, Message->buf,BUF_MAX_LEN);
@@ -140,10 +141,15 @@ int sendfile(const char* file_path)
 			{
 				 printf("server No space\r\n");
 				 return -1;
+			}else if(Message_repose->type == NO_INIT)
+			{
+				 printf("server NO_INIT\r\n");
+				 return -1;
 			}
 			else
 			{
 			   printf("file send fail!retry send\n");
+			   num--;
 			   uartsend((char*)Message,Message->buf_len+MESG_HEAD_LEN);
 			}
 		}
@@ -425,12 +431,13 @@ void uartsend(char *buf,unsigned int len)
 
 int uartrev(char *buf)
 {
-//	struct timespec abs_timeout;
+	struct timespec abs_timeout;
 	int i = 0;
-//	abs_timeout.tv_sec = 10;
-//	abs_timeout.tv_nsec = 0;
-//	if(sem_timedwait(&sem,&abs_timeout) == 0)
-	if(sem_wait(&sem) == 0)
+	
+ 	clock_gettime(CLOCK_REALTIME, &abs_timeout);
+	abs_timeout.tv_sec += 3	;
+
+	if(sem_timedwait(&sem,&abs_timeout) == 0)//if(sem_wait(&sem) == 0)
 	{
 //		printf("sem_timedwait is ok\n");
 		memcpy(buf,frame_data,frame_data_length);

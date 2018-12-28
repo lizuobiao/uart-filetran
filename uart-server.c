@@ -170,11 +170,21 @@ void cmd_revfile(Message_t *Message)
 	int len;
 //	printf("cmd_revfile buf_len = %d\r\n",Message->buf_len);
 //	printf("buf = %s\n",Message->buf);
+
+	if(fd == 0)
+	{
+		printf("fd == 0 no init file\n");
+		Message->type = NO_INIT;
+		Message->buf_len = 0;
+		uartsend((char*)Message,MESG_HEAD_LEN);
+		return;
+	}	
+	
 	len = write(fd,Message->buf,Message->buf_len);
 	
 	if(len == -1)
 	{
-		printf("errno = %d",errno);
+		printf("errno = %d\n",errno);
 		bzero(file_path_back,FILE_NAME_MAX_LEN);  
 		bzero(file_path,FILE_NAME_MAX_LEN);
 		Message->type = ACK_NOSP;
@@ -183,8 +193,7 @@ void cmd_revfile(Message_t *Message)
 	{
 		Message->type = ACK_OK;
 	}
-	
-	
+		
 	Message->buf_len = 0;
 	uartsend((char*)Message,MESG_HEAD_LEN);
 }
@@ -206,7 +215,7 @@ void cmd_revfilefinsh(Message_t *Message)
 		if(md5output[i] != Filemsg.md5[i])
 			break;
 	}
-	
+
 	if(i != 16)
 	{
 		Message->type = ACK_FAIL;

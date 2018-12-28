@@ -37,11 +37,12 @@ enum Command
 
 enum Type
 {
-	REQ_NOR  = 0x00,
-    ACK_OK   = 0x01,
-    ACK_FAIL = 0x02,
-	ACK_NOSP = 0x03,  /* No space left on device */
-	REQ_NORE = 0x04,
+	REQ_NOR   = 0x00,
+    ACK_OK    = 0x01,
+    ACK_FAIL  = 0x02,
+	ACK_NOSP  = 0x03,  /* No space left on device */
+	REQ_NORE  = 0x04,
+	NO_INIT   = 0x05,  //没有初始化，没有给到文件信息给server
 };
 
 #define FILE_NAME_MAX_LEN 128
